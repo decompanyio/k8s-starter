@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: grafana
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    ingress.kubernetes.io/whitelist-source-range: 118.37.116.13/32 # change this range to admin IPs
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          serviceName: grafana
+          servicePort: 3000
+        path: /*
