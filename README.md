@@ -12,7 +12,10 @@ us-west-1(캘리포니아)에는 EKS가 없음
 
 
 ## Key Pair 
-EC2 Key Pair에서 생성하고 다운로드 받음
+
+```
+ssh-keygen
+```
 
 ## Export public key from pem file
 
@@ -33,7 +36,7 @@ eksctl create cluster \
 --nodes-min 1 \
 --nodes-max 4 \
 --ssh-access \
---ssh-public-key /Users/jay/Documents/infraware/decompany.oregon.pub \
+--ssh-public-key {ssh-keygen을 통하여 export된 public 파일} \
 --managed
 ```
 
