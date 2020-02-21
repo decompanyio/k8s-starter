@@ -146,3 +146,22 @@ kubectl get deployments
 kubectl get service ps-frontend -o wide
 echo $(kubectl get service ps-frontend -o json | jq -r '.status.loadBalancer.ingress[].hostname')
 ```
+
+## kubectl 권한 복구하기
+
+
+[가이드 : https://docs.aws.amazon.com/ko_kr/eks/latest/userguide/create-kubeconfig.html](https://docs.aws.amazon.com/ko_kr/eks/latest/userguide/create-kubeconfig.html)
+```
+aws eks --region {region} update-kubeconfig --name {cluster_name}
+
+```
+
+## Cluster 삭제하기
+
+```
+eksctl delete cluster --name {cluster_name} --region {region}
+```
+
+> Cluster 삭제시 자동으로 생성되는 Policy, Role, pod, service등 수동으로 생성된것들이 있으면 제거해야 삭제가 가능함
+> VPC는 수동으로 지워야함
+> 운영이 오래되면 그냥 수동으로 지울수 밖에 없음
