@@ -21,41 +21,51 @@ ssh-keygen
 
 ```
 ssh-keygen -y -f /Users/jay/Documents/infraware/decompany.oregon.pem > decompany.oregon.pub
+ssh-keygen -y -f ~/polarishare/ko-decompany.pem > ko-decompany.pub 
 ```
 
 ## Create Cluster
 
 ```bash
+CLUSTER_NAME=frontend-cluster-asem
+AWS_REGION=ap-northeast-2 # write cluster's region
+
+echo "CLUSETER_NAME :" $CLUSTER_NAME
+echo "REGION        :" $REGION
+echo ""
+
 eksctl create cluster \
---name dev \
+--name $CLUSTER_NAME \
 --version 1.14 \
---region us-west-2 \
+--region $AWS_REGION \
 --nodegroup-name standard-workers \
---node-type t3.medium \
---nodes 3 \
+--node-type c5.large \
+--nodes 2 \
 --nodes-min 1 \
 --nodes-max 4 \
 --ssh-access \
---ssh-public-key {ssh-keygen을 통하여 export된 public 파일} \
+--ssh-public-key ./ko-decompany.pub \
 --managed
 ```
 
 ## ALB Ingress Controller 설치
 
 ```
+wget https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.3/docs/examples/iam-policy.json
+
 echo '>>> CREATE ALBIngressControllerIAMPolicy '
 aws iam create-policy \
 --policy-name ALBIngressControllerIAMPolicy \
---policy-document https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingress-controller/v1.1.3/docs/examples/iam-policy.json
+--policy-document file://./iam-policy.json
 echo ''
 
 echo '>>> Connecting ALBIngressControllerIAMPolicy To WorkerNode Role'
 NG_ROLE=`kubectl -n kube-system describe configmap aws-auth | grep rolearn`
 ACCOUNT=${NG_ROLE:24:12}
 WN_ROLE=${NG_ROLE:42}
-echo "ACCOUNT          : $ACCOUNT"
-echo "WORKER NODE ROLE : $WN_ROLE"
-echo "NODE GROUP ROLE  : $NG_ROLE"
+echo "ACCOUNT          :" $ACCOUNT
+echo "WORKER NODE ROLE :" $WN_ROLE
+echo "NODE GROUP ROLE  :" $NG_ROLE
 
 aws iam attach-role-policy \
 --policy-arn arn:aws:iam::${ACCOUNT}:policy/ALBIngressControllerIAMPolicy \
@@ -67,12 +77,11 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-alb-ingre
 echo ''
 
 echo '>>> Create ALB Ingress Controller'
-CLUSTER_NAME='dev' # write your's cluster name
-AWS_REGION='us-west-2' # write cluster's region
+
 VPC_ID=`eksctl get cluster --name ${CLUSTER_NAME} --region ${AWS_REGION} --output json | jq -r '.[0].ResourcesVpcConfig.VpcId'`
-echo "CLUSTER NAME : $CLUSTER_NAME"
-echo "VPC ID       : $VPC_ID"
-echo "AWS REGION   : $AWS_REGION"
+echo "CLUSTER NAME : " $CLUSTER_NAME
+echo "VPC ID       : " $VPC_ID
+echo "AWS REGION   : " $AWS_REGION
 echo ''
 
 echo '>>> Remove Old alb-ingress-controller.yaml file && New alb-ingress-controller.yaml file Download'
@@ -93,16 +102,17 @@ kubectl get pods -n kube-system | grep alb
 ```
 
 ## Log 수집을 위한 Policy 추가
-
+> https://docs.aws.amazon.com/ko_kr/AmazonCloudWatch/latest/monitoring/Container-Insights-setup-logs.html
 ```
-STACK_NAME=$(eksctl get nodegroup --region=us-west-2 --cluster dev -o json | jq -r '.[].StackName')
-ROLE_NAME=$(aws cloudformation describe-stack-resources --region us-west-2 --stack-name $STACK_NAME | jq -r '.StackResources[] | select(.ResourceType=="AWS::IAM::Role") | .PhysicalResourceId')
+STACK_NAME=$(eksctl get nodegroup --region=$AWS_REGION --cluster $CLUSTER_NAME -o json | jq -r '.[].StackName')
+ROLE_NAME=$(aws cloudformation describe-stack-resources --region $AWS_REGION --stack-name $STACK_NAME | jq -r '.StackResources[] | select(.ResourceType=="AWS::IAM::Role") | .PhysicalResourceId')
 aws iam put-role-policy --region us-west-2 --role-name $ROLE_NAME --policy-name Logs-Policy-For-Worker --policy-document file://k8s-logs-policy.json
 ```
 
 ## Deploy Fluentd in kube-system
 
 fluentd.yml 다운로드(기본설정)
+> https://banzaicloud.com/docs/one-eye/logging-operator/plugins/outputs/cloudwatch/
 
 ```
 wget https://eksworkshop.com/intermediate/230_logging/deploy.files/fluentd.yml
@@ -118,12 +128,12 @@ env:
     value: dev
 ```
 
-Fluentd 설치하기
+## Fluentd 설치하기
 ```
 kubectl apply -f fluentd.yml
 ```
 
-확인하기
+## CLUSTER 확인하기
 
 ```
 kubectl get pods -w --namespace=kube-system
@@ -139,6 +149,12 @@ kubectl apply -f frontend/ps-frontend-service.yaml
 kubectl apply -f frontend/ps-frontend-ingress.yaml
 ```
 
+```
+kubectl delete -f frontend/ps-frontend-deployment.yaml
+kubectl delete -f frontend/ps-frontend-service.yaml
+kubectl delete -f frontend/ps-frontend-ingress.yaml
+```
+
 ## Check Deploy status
 
 ```
@@ -147,12 +163,20 @@ kubectl get service ps-frontend -o wide
 echo $(kubectl get service ps-frontend -o json | jq -r '.status.loadBalancer.ingress[].hostname')
 ```
 
-## kubectl 권한 복구하기
+## 도메인 확인
+
+```
+kubectl get ingress -n frontend -o wide
+```
+
+## ETC
+
+## 잘못된 삭제로 kubectl의 권한 오류가 발생할경우 복구하기
 
 
 [가이드 : https://docs.aws.amazon.com/ko_kr/eks/latest/userguide/create-kubeconfig.html](https://docs.aws.amazon.com/ko_kr/eks/latest/userguide/create-kubeconfig.html)
 ```
-aws eks --region {region} update-kubeconfig --name {cluster_name}
+aws eks --region $AWS_REGION update-kubeconfig --name $CLUSTER_NAME
 
 ```
 
