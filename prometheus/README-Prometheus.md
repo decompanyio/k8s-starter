@@ -1,22 +1,24 @@
 
 # Prometheus 설치하기
 
-## Namespace
-  - monitoring 로 생성됨
-  - ./kube-prometheue/manifests/setup/0namespace-namespace.ymal 참조
-
-## Kube-prometheus 이용하기
+## Kube-prometheus 설치하기
 
 [설치 가이드](https://github.com/coreos/kube-prometheus#quickstart)
 
+release-0.3 branch clone
 ```
-git clone https://github.com/coreos/kube-prometheus.git
-kubectl create -f kube-prometheus/manifests/setup
-kubectl create -f kube-prometheus/manifests
+git clone -b release-0.3 --single-branch {저장소 URL} https://github.com/coreos/kube-prometheus.git
+```
+
+Install
+```
+kubectl create -f manifests/setup
+until kubectl get servicemonitors --all-namespaces ; do date; sleep 1; echo ""; done
+kubectl create -f manifests/
 ```
 
 
-## Ingress 설정하기
+## 외부에서 접속하기 위한 Dashborad Ingress 설정하기
 
  - ingress.kubernetes.io/whitelist-source-range : 접속 가능한 IP 입력
 ```
